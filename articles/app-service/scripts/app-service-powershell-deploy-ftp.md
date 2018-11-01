@@ -32,6 +32,64 @@ ms.locfileid: "39324454"
 
 [!code-azurepowershell-interactive[main](../../../powershell_scripts/app-service/deploy-ftp/deploy-ftp.ps1?highlight=1 "Upload files to a web app using FTP")]
 
+## 根据脚本，如果文件夹中包含子目录，需要先创建子文件夹。添加代码如下：
+          
+    $xml = [xml](Get-AzureRmWebAppPublishingProfile -Name mydeployLocal30201 -ResourceGroupName efworkcasegroup -OutputFile null)
+    $username = $xml.SelectNodes("//publishProfile[@publishMethod=`"FTP`"]/@userName").value
+    $password = $xml.SelectNodes("//publishProfile[@publishMethod=`"FTP`"]/@userPWD").value
+    $url = $xml.SelectNodes("//publishProfile[@publishMethod=`"FTP`"]/@publishUrl").value
+    $appdirectory ="C:\LuBuFolder\Azure\Project\mydeployLocal\mydeployLocal\bin\Release\netcoreapp2.1\publish"
+
+    # Create FTP Directory/SubDirectory If Needed - Start
+    $Srcfolders = Get-ChildItem -Path $appdirectory -Recurse | Where-Object{$_.PSIsContainer}
+    foreach($folder in $Srcfolders)
+    {
+        $SrcFolderPath = $appdirectory  -replace "\\","\\" -replace "\:","\:"   
+        $DesFolder = $folder.Fullname -replace $SrcFolderPath,$url
+        $DesFolder = $DesFolder -replace "\\", "/"
+
+        "Create folder in FTP:  " + $DesFolder
+
+  	    try
+            {
+                $makeDirectory = [System.Net.WebRequest]::Create($DesFolder);
+                $makeDirectory.Credentials = New-Object System.Net.NetworkCredential($username,$password);
+                $makeDirectory.Method = [System.Net.WebRequestMethods+FTP]::MakeDirectory;
+                $makeDirectory.GetResponse();
+                #folder created successfully
+            }
+   	     catch [Net.WebException]
+            {
+                try {
+                    #if there was an error returned, check if folder already existed on server
+                    $checkDirectory = [System.Net.WebRequest]::Create($DesFolder);
+                    $checkDirectory.Credentials = New-Object System.Net.NetworkCredential($username,$password);
+                    $checkDirectory.Method = [System.Net.WebRequestMethods+FTP]::PrintWorkingDirectory;
+                    $response = $checkDirectory.GetResponse();
+                    #folder already exists!
+                }
+                catch [Net.WebException] {
+                    #if the folder didn't exist
+                }
+            }
+    }
+    # Create FTP Directory/SubDirectory If Needed - Stop
+
+    # Upload Files - Start
+    #Set-Location $appdirectory
+    $webclient = New-Object -TypeName System.Net.WebClient
+    $webclient.Credentials = New-Object System.Net.NetworkCredential($username,$password)
+    $files = Get-ChildItem -Path $appdirectory -Recurse | Where-Object{!($_.PSIsContainer)}
+    foreach ($file in $files)
+    {
+        $relativepath = (Resolve-Path -Path $file.FullName -Relative).Replace(".\", "").Replace('\', '/')
+        $uri = New-Object System.Uri("$url/$relativepath")
+        "Uploading to " + $uri.AbsoluteUri
+        $webclient.UploadFile($uri, $file.FullName)
+    }
+    $webclient.Dispose()
+    # Upload Files - End
+
 ## <a name="clean-up-deployment"></a>清理部署 
 
 运行脚本示例后，可以使用以下命令删除资源组、Web 应用以及所有相关资源。
