@@ -4137,7 +4137,7 @@ xpath('<xml>', '<xpath>')
 
   * `/*[name()=\"file\"]/*[name()=\"location\"]`
 
-  * `/*[local-name=()=\"file\"] and namespace-uri()=\"http://contoso.com\"/*[local-name()]=\"location\" and namespace-uri()=\"\"]`
+  * `/*[local-name()=\"file\" and namespace-uri()=\"http://contoso.com\"]/*[local-name()=\"location\" and namespace-uri()=\"\"]`
 
 下面是与 `<location></location` 节点匹配的结果节点：
 
